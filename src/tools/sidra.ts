@@ -323,7 +323,7 @@ Retorna: PIB em mil reais e PIB per capita.`,
         const periodo = ano ?? "last";
         let localidade: string;
         if (municipio_id) localidade = `N6[${municipio_id}]`;
-        else if (estado_id) localidade = `N6[in N3[${estado_id}]]`;
+        else if (estado_id) localidade = `N6[in%20N3[${estado_id}]]`;
         else localidade = "N6[all]";
         const url = `${IBGE_API.v3}/agregados/5938/periodos/${periodo}/variaveis/37|497?localidades=${localidade}`;
         const dados = await ibgeFetch<SidraResultado[]>(url);
@@ -366,7 +366,7 @@ Retorna: população residente total pelo Censo 2022.`,
             localidade = `N6[${municipio_id}]`; break;
           case "estado_municipios":
             if (!estado_id) return { content: [{ type: "text", text: "Erro: estado_id obrigatório quando nivel='estado_municipios'" }] };
-            localidade = `N6[in N3[${estado_id}]]`; break;
+            localidade = `N6[in%20N3[${estado_id}]]`; break;
           default: localidade = "N1[all]";
         }
         const url = `${IBGE_API.v3}/agregados/9514/periodos/2022/variaveis/93?localidades=${localidade}`;
@@ -409,11 +409,11 @@ Exemplos:
       const CAPITAIS_IDS = "1302603,1501402,1100205,1200401,1400100,1600303,1721000,2111300,2211001,2304400,2408102,2507507,2611606,2704302,2800308,2927408,3106200,3304557,3550308,3205309,4106902,4205407,4314902,5002704,5103403,5208707,5300108";
       try {
         const localidade = estado_id
-          ? `N6[in N3[${estado_id}]]`
+          ? `N6[in%20N3[${estado_id}]]`
           : `N6[${CAPITAIS_IDS}]`;
         const escopo = estado_id ? `estado código ${estado_id}` : "27 capitais brasileiras";
 
-        const url = `${IBGE_API.v3}/agregados/9543/periodos/2022/variaveis/2513?localidades=${localidade}&view=flat`;
+        const url = `${IBGE_API.v3}/agregados/9543/periodos/2022/variaveis/2513?localidades=${localidade}`;
         const dados = await ibgeFetch<SidraResultado[]>(url);
         const series = dados?.[0]?.resultados?.[0]?.series ?? [];
         if (series.length === 0) {
