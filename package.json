@@ -1,12 +1,49 @@
 {
-  "name": "ibge-mcp-server",
-  "version": "1.0.0",
-  "description": "MCP Server para as APIs públicas do IBGE",
+  "name": "ab-ibge-mcp-server",
+  "version": "2.0.1",
+  "description": "MCP Server para as APIs públicas do IBGE - Acesso a dados estatísticos, geográficos e econômicos do Brasil",
   "main": "dist/index.js",
+  "bin": {
+    "ab-ibge-mcp-server": "dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts"
+    "dev": "ts-node src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ibge",
+    "brasil",
+    "brazil",
+    "statistics",
+    "demographics",
+    "geographic",
+    "api",
+    "census",
+    "ipca",
+    "pib",
+    "gdp",
+    "sidra",
+    "ai-agent",
+    "claude"
+  ],
+  "author": "AB Company",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seu-usuario/ibge-mcp-server.git"
+  },
+  "homepage": "https://github.com/seu-usuario/ibge-mcp-server#readme",
+  "bugs": {
+    "url": "https://github.com/seu-usuario/ibge-mcp-server/issues"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",

@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerSidraTools = registerSidraTools;
 const zod_1 = require("zod");
 const ibge_client_js_1 = require("../services/ibge-client.js");
+const cache_js_1 = require("../services/cache.js");
 const LOCALIDADES_COMUNS = {
     BR: "N1[all]",
     REGIOES: "N2[all]",
@@ -116,7 +117,7 @@ Retorna: id, nome, período e variáveis das tabelas encontradas (máx. 50).`,
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     }, async ({ pesquisa_id, nome_filtro }) => {
         try {
-            // 1. Busca no catalogo por tema primeiro (muito mais eficaz)
+            // 1. Busca no catálogo semântico (muito mais eficaz para português)
             if (nome_filtro && !pesquisa_id) {
                 const termo = nome_filtro.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                 const matches = CATALOGO_TEMAS.filter((entrada) => entrada.temas.some((t) => {
@@ -134,31 +135,45 @@ Retorna: id, nome, período e variáveis das tabelas encontradas (máx. 50).`,
                     };
                 }
             }
-            // 2. Fallback: busca textual na API SIDRA
             const url = pesquisa_id
                 ? `${ibge_client_js_1.IBGE_API.v3}/agregados?pesquisa=${pesquisa_id}`
                 : `${ibge_client_js_1.IBGE_API.v3}/agregados`;
-            const agregados = await (0, ibge_client_js_1.ibgeFetch)(url);
-            let lista = agregados;
+            const grupos = await (0, ibge_client_js_1.ibgeFetch)(url);
+            // Aplanar grupos → tabelas reais, preservando pesquisaID/Nome
+            let lista = grupos.flatMap((g) => (g.agregados ?? []).map((a) => ({
+                ...a,
+                pesquisaID: a.pesquisaID || g.id,
+                pesquisaNome: a.pesquisaNome || g.nome
+            })));
             if (nome_filtro) {
                 const f = nome_filtro.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                lista = agregados.filter((a) => {
+                lista = lista.filter((a) => {
                     const n = a.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                     return f.split(" ").some((palavra) => n.includes(palavra));
                 });
             }
             if (lista.length === 0) {
                 const temas = CATALOGO_TEMAS.map((e) => e.temas[0]).join(", ");
-                return { content: [{ type: "text", text: `Nenhuma tabela encontrada para "${nome_filtro}".\n\nTemas no catálogo: ${temas}` }] };
+                const msg = pesquisa_id
+                    ? `Nenhuma tabela encontrada para pesquisa "${pesquisa_id}". Pesquisas válidas: CN=Censo, CA=Censo Agro, EC=PIB Municipal, IN=Indicadores ODS, PD=PNAD Dom., PA=Prod.Agrícola, PM=PNAD Mensal, AQ=Pesq.Aquicultura`
+                    : `Nenhuma tabela encontrada para "${nome_filtro}".\n\nTemas no catálogo: ${temas}`;
+                return { content: [{ type: "text", text: msg }] };
             }
             const limitada = lista.slice(0, 50);
             const texto = limitada.map((a) => {
-                const periodo = a.periodicidade ? `${a.periodicidade.inicio}–${a.periodicidade.fim} (${a.periodicidade.frequencia})` : "N/A";
+                const periodo = a.periodicidade
+                    ? `${a.periodicidade.inicio}–${a.periodicidade.fim} (${a.periodicidade.frequencia})`
+                    : "N/A";
                 const vars = (a.variaveis ?? []).slice(0, 3).map((v) => v.nome).join(", ");
-                return `• **Tabela ${a.id}** — ${a.nome}\n  Período: ${periodo} | Variáveis: ${vars}${(a.variaveis?.length ?? 0) > 3 ? "..." : ""}`;
+                return `• **Tabela ${a.id}** [${a.pesquisaID}] — ${a.nome}\n  Período: ${periodo} | Variáveis: ${vars}${(a.variaveis?.length ?? 0) > 3 ? "..." : ""}`;
             }).join("\n\n");
-            const aviso = lista.length > 50 ? `\n\n⚠️ Mostrando 50 de ${lista.length} tabelas.` : "";
-            return { content: [{ type: "text", text: (0, ibge_client_js_1.truncateIfNeeded)(`**Tabelas SIDRA: ${lista.length} encontradas**\n\n${texto}${aviso}`) }] };
+            const aviso = lista.length > 50 ? `\n\n⚠️ Mostrando 50 de ${lista.length} tabelas. Use nome_filtro para refinar.` : "";
+            return {
+                content: [{
+                        type: "text",
+                        text: (0, ibge_client_js_1.truncateIfNeeded)(`**Tabelas SIDRA: ${lista.length} encontradas** (pesquisa: ${pesquisa_id ?? "todas"})\n\n${texto}${aviso}`)
+                    }]
+            };
         }
         catch (err) {
             return { content: [{ type: "text", text: (0, ibge_client_js_1.formatToolError)(err) }] };
@@ -166,23 +181,41 @@ Retorna: id, nome, período e variáveis das tabelas encontradas (máx. 50).`,
     });
     server.registerTool("ibge_sidra_metadados_tabela", {
         title: "Ver Metadados de Tabela SIDRA",
-        description: `Retorna metadados completos de uma tabela SIDRA: variáveis, classificações, níveis territoriais e períodos.
-Use ANTES de consultar dados para entender o que a tabela contém.
+        description: `Retorna metadados completos de uma tabela SIDRA: variáveis, classificações com IDs de categorias, níveis territoriais e períodos disponíveis.
+Use SEMPRE antes de ibge_sidra_consultar_tabela quando não souber os IDs de variável ou classificação.
+Retorna também os valores exatos para o parâmetro "classificacao" prontos para uso.
 Args:
-  - tabela_id (string): código da tabela (ex: "9514", "1419", "5938")`,
+  - tabela_id (string): código da tabela (ex: "9514", "1419", "5938", "9543")`,
         inputSchema: zod_1.z.object({
-            tabela_id: zod_1.z.string().describe("Código da tabela SIDRA (ex: '9514', '1419', '5938')"),
+            tabela_id: zod_1.z.string().describe("Código da tabela SIDRA"),
         }),
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     }, async ({ tabela_id }) => {
         try {
             const dados = await (0, ibge_client_js_1.ibgeFetch)(`${ibge_client_js_1.IBGE_API.v3}/agregados/${tabela_id}/metadados`);
             const variaveis = (dados.variaveis ?? []).map((v) => `  • [${v.id}] ${v.nome} (${v.unidade})`).join("\n");
-            const classificacoes = (dados.classificacoes ?? []).map((c) => {
-                const cats = (c.categorias ?? []).slice(0, 5).map((cat) => `${cat.id}=${cat.nome}`).join(", ");
-                return `  • [${c.id}] ${c.nome} — Cats: ${cats}${(c.categorias?.length ?? 0) > 5 ? "..." : ""}`;
-            }).join("\n");
             const niveis = [...(dados.nivelTerritorial?.Administrativo ?? []), ...(dados.nivelTerritorial?.Especial ?? [])].join(", ");
+            // Montar bloco de classificações com todas as categorias + strings prontas para uso
+            const classificacoes = (dados.classificacoes ?? []).map((c) => {
+                const totalCats = c.sumarizacao?.length > 0
+                    ? c.sumarizacao.map((id) => {
+                        const cat = (c.categorias ?? []).find((ct) => ct.id === id);
+                        return `${id}${cat ? `(${cat.nome})` : ""}`;
+                    }).join(",")
+                    : "all";
+                const todasCats = (c.categorias ?? []).map((cat) => `    ${cat.id} = ${cat.nome}`).join("\n");
+                return [
+                    `  • [${c.id}] ${c.nome}`,
+                    `    → Para totais/agregados: classificacao="${c.id}[${totalCats}]"`,
+                    `    → Para todas as categorias: classificacao="${c.id}[all]"`,
+                    `    Categorias disponíveis:`,
+                    todasCats,
+                ].join("\n");
+            }).join("\n\n");
+            // Gerar string de classificacao pronta para uso (todos os totais combinados)
+            const classificacaoTotal = (dados.classificacoes ?? [])
+                .map((c) => `${c.id}[${c.sumarizacao?.length > 0 ? c.sumarizacao.join(",") : "all"}]`)
+                .join("|");
             return {
                 content: [{
                         type: "text",
@@ -193,7 +226,60 @@ Args:
                             `📅 Período: ${dados.periodicidade?.inicio} a ${dados.periodicidade?.fim} (${dados.periodicidade?.frequencia})`,
                             `🗺️ Níveis territoriais: ${niveis}`,
                             `\n📊 **Variáveis:**\n${variaveis}`,
-                            `\n🗂️ **Classificações:**\n${classificacoes || "Nenhuma"}`,
+                            ...(classificacaoTotal ? [
+                                `\n💡 **classificacao para totais (copie e use):**`,
+                                `   ${classificacaoTotal}`,
+                            ] : []),
+                            `\n🗂️ **Classificações (IDs e categorias):**\n${classificacoes || "  Nenhuma — não é necessário o parâmetro classificacao"}`,
+                        ].join("\n"),
+                    }],
+            };
+        }
+        catch (err) {
+            return { content: [{ type: "text", text: (0, ibge_client_js_1.formatToolError)(err) }] };
+        }
+    });
+    server.registerTool("ibge_periodos_tabela", {
+        title: "Consultar Períodos Disponíveis de uma Tabela SIDRA",
+        description: `Retorna todos os períodos disponíveis para uma tabela SIDRA.
+Use ANTES de ibge_sidra_consultar_tabela quando precisar saber quais anos/meses existem.
+Evita erros de "período não encontrado" e HTTP 500 por período inválido.
+Args:
+  - tabela_id: código da tabela (ex: "1419" para IPCA, "9514" para Censo)
+Retorna: lista de períodos no formato AAAA, AAAAMM ou trimestre.`,
+        inputSchema: zod_1.z.object({
+            tabela_id: zod_1.z.string().describe("Código da tabela SIDRA (ex: '1419', '9514', '6381')"),
+        }),
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    }, async ({ tabela_id }) => {
+        try {
+            const periodos = await (0, ibge_client_js_1.ibgeFetch)(`${ibge_client_js_1.IBGE_API.v3}/agregados/${tabela_id}/periodos`);
+            if (!periodos?.length) {
+                return { content: [{ type: "text", text: `Nenhum período encontrado para tabela ${tabela_id}.` }] };
+            }
+            const ids = periodos.map((p) => p.id);
+            const mais_recente = ids[ids.length - 1];
+            const mais_antigo = ids[0];
+            const total = ids.length;
+            // Mostrar últimos 24 e primeiros 3 para não sobrecarregar
+            const amostra = total > 27
+                ? [...ids.slice(0, 3), "...", ...ids.slice(-24)]
+                : ids;
+            return {
+                content: [{
+                        type: "text",
+                        text: [
+                            `**Períodos disponíveis — Tabela SIDRA ${tabela_id}**`,
+                            `📅 Total: ${total} períodos | Mais antigo: ${mais_antigo} | Mais recente: ${mais_recente}`,
+                            ``,
+                            `Períodos (${amostra.length < total ? "amostra" : "todos"}):`,
+                            amostra.join(", "),
+                            ``,
+                            `💡 Use em ibge_sidra_consultar_tabela:`,
+                            `   periodo="${mais_recente}"  → dado mais recente`,
+                            `   periodo="-6"              → últimos 6 períodos`,
+                            `   periodo="-12"             → últimos 12 períodos`,
+                            `   periodo="${mais_antigo}-${mais_recente}" → série completa (pode ser lento)`,
                         ].join("\n"),
                     }],
             };
@@ -205,36 +291,48 @@ Args:
     server.registerTool("ibge_sidra_consultar_tabela", {
         title: "Consultar Dados de Tabela do SIDRA",
         description: `Consulta dados de uma tabela específica do SIDRA com séries históricas por localidade.
-Args:
-  - tabela_id: código da tabela (obtenha com ibge_sidra_pesquisar_tabelas)
-  - variavel (opcional): código da variável. Sem valor = todas.
-  - localidade: "BR"=Brasil, "ESTADOS"=todos estados, "REGIOES"=regiões,
-    código 2 dígitos=estado específico (ex: "35"=SP), código 7 dígitos=município
-  - periodo: "last"=mais recente, "last[N]"=últimos N, "AAAA"=ano, "AAAAMM"=mês
-  - classificacao (opcional): filtro no formato "ID[cats]"
 
-Tabelas populares: 9514=Censo2022, 5938=PIB Municipal, 1419=IPCA, 6579=PNAD Desocupação`,
+FLUXO RECOMENDADO para tabelas desconhecidas:
+  1. ibge_sidra_metadados_tabela → descobre variáveis, classificações e períodos válidos
+  2. ibge_periodos_tabela → confirma quais períodos existem (evita HTTP 500)
+  3. ibge_sidra_consultar_tabela → consulta com parâmetros corretos
+
+Args:
+  - tabela_id: código da tabela
+  - variaveis (opcional): ID(s) da(s) variável(is) separados por pipe "|" (ex: "93|94|95"). Sem valor = todas.
+  - localidade: "BR", "ESTADOS", "REGIOES", 2 dígitos=estado (ex:"35"), 7 dígitos=município
+  - periodo: "last"=mais recente, "-6"=últimos 6, "-12"=últimos 12, "AAAA"=ano específico
+    Use ibge_periodos_tabela para ver períodos válidos e evitar HTTP 500.
+  - classificacao (opcional): cópie o valor pronto de ibge_sidra_metadados_tabela.
+    Formato: "ID[cats]|ID[cats]" — use "ID[all]" para todas as categorias de uma classificação.
+    NUNCA invente IDs de categoria — sempre consulte metadados primeiro.
+
+Tabelas populares: 9514=Censo2022 pop, 9543=Censo2022 alfabetização, 5938=PIB Municipal, 1419=IPCA, 6381=PNAD Desocupação`,
         inputSchema: zod_1.z.object({
             tabela_id: zod_1.z.string().describe("Código da tabela SIDRA"),
-            variavel: zod_1.z.string().optional().describe("Código da variável (sem valor = todas)"),
+            variaveis: zod_1.z.string().optional().describe("Código(s) da(s) variável(is) separados por pipe '|' (ex: '93|94|95')"),
             localidade: zod_1.z.string().default("BR").describe("BR, ESTADOS, REGIOES, código de estado (2 dígitos) ou município (7 dígitos)"),
             periodo: zod_1.z.string().default("last").describe("last, last[N], AAAA, AAAAMM"),
             classificacao: zod_1.z.string().optional().describe("Filtro de classificação no formato 'ID[cats]'"),
         }),
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-    }, async ({ tabela_id, variavel, localidade, periodo, classificacao }) => {
+    }, async ({ tabela_id, variaveis, localidade, periodo, classificacao }) => {
         try {
             const codigoLocalidade = resolverLocalidade(localidade);
-            const variavelStr = variavel ?? "allxp";
-            // Normalizar formato do período: last[N] → last N, ultimo → last, ultimosN → last N
+            const variavelStr = variaveis ?? "allxp";
+            // Normalizar formato do período:
+            //   last[N] → last N (SIDRA usa espaço não colchetes)
+            //   -N      → last N (shorthand da API: -6 = últimos 6)
+            //   ultimo/ultimos → last / last N
             const periodoNorm = periodo
                 .replace(/^ultimo$/i, "last")
                 .replace(/^ultimos?\s*(\d+)$/i, (_, n) => `last%20${n}`)
-                .replace(/^last\[(\d+)\]$/i, (_, n) => `last%20${n}`);
+                .replace(/^last\[(\d+)\]$/i, (_, n) => `last%20${n}`)
+                .replace(/^-(\d+)$/, (_, n) => `last%20${n}`);
             let url = `${ibge_client_js_1.IBGE_API.v3}/agregados/${tabela_id}/periodos/${periodoNorm}/variaveis/${variavelStr}?localidades=${codigoLocalidade}`;
             if (classificacao)
                 url += `&classificacao=${classificacao}`;
-            const dados = await (0, ibge_client_js_1.ibgeFetch)(url);
+            const dados = await (0, ibge_client_js_1.ibgeFetch)(url, cache_js_1.TTL.SIDRA_DATA);
             if (!dados?.length)
                 return { content: [{ type: "text", text: `Nenhum dado encontrado para a tabela ${tabela_id}.` }] };
             const resultado = formatarResultadoSidra(dados);
@@ -249,6 +347,7 @@ Tabelas populares: 9514=Censo2022, 5938=PIB Municipal, 1419=IPCA, 6579=PNAD Deso
         description: `Consulta o IPCA — principal indicador de inflação do Brasil.
 Args:
   - ultimos_meses: número de meses a retornar (1-60, padrão: 12)
+    IMPORTANTE: para tipos "acumulada_ano" ou "acumulada_12_meses", retorna apenas os N períodos mais recentes
   - tipo: "variacao_mensal" (padrão), "variacao_acumulada_ano", "variacao_acumulada_12_meses"
 Retorna: série histórica com variação percentual por mês.`,
         inputSchema: zod_1.z.object({
@@ -259,8 +358,10 @@ Retorna: série histórica com variação percentual por mês.`,
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     }, async ({ ultimos_meses, tipo }) => {
         try {
-            const varMap = { variacao_mensal: "63", variacao_acumulada_ano: "69", variacao_acumulada_12_meses: "2266" };
-            const url = `${ibge_client_js_1.IBGE_API.v3}/agregados/1419/periodos/last%20${ultimos_meses}/variaveis/${varMap[tipo]}?localidades=N1[all]`;
+            const varMap = { variacao_mensal: "63", variacao_acumulada_ano: "69", variacao_acumulada_12_meses: "2265" };
+            // Para variações acumuladas, cada ponto já é um acumulado, então usamos "last N" normalmente
+            const periodo = `last%20${ultimos_meses}`;
+            const url = `${ibge_client_js_1.IBGE_API.v3}/agregados/1419/periodos/${periodo}/variaveis/${varMap[tipo]}?localidades=N1[all]`;
             const dados = await (0, ibge_client_js_1.ibgeFetch)(url);
             return { content: [{ type: "text", text: `**IPCA — ${tipo.replace(/_/g, " ")}** (últimos ${ultimos_meses} meses)\n${formatarResultadoSidra(dados)}` }] };
         }
@@ -413,6 +514,84 @@ Exemplos:
                             `|---|-----------|----------------------|\n` +
                             linhas.join("\n") +
                             `\n\n_Fonte: IBGE Censo 2022, Tabela 9543 — pessoas de 15+ que sabem ler e escrever_`)
+                    }]
+            };
+        }
+        catch (err) {
+            return { content: [{ type: "text", text: (0, ibge_client_js_1.formatToolError)(err) }] };
+        }
+    });
+    server.registerTool("ibge_pib_estados", {
+        title: "PIB dos Estados",
+        description: `Consulta o Produto Interno Bruto (PIB) dos estados brasileiros.
+Dados oficiais do IBGE para análise econômica regional.
+
+Args:
+  - ano (obrigatório): Ano do PIB (ex: 2021, 2020, 2019...)
+  - uf_id (opcional): ID do estado específico (ex: 35=SP). Omita para todos os estados.
+  - per_capita (opcional): true para PIB per capita, false para PIB total (padrão: false)
+
+Retorna ranking de PIB com participação percentual no total nacional.
+Exemplo: "Qual o PIB de São Paulo em 2021?" ou "Ranking de PIB dos estados"`,
+        inputSchema: zod_1.z.object({
+            ano: zod_1.z.number().int().min(1995).max(2030).describe("Ano do PIB (ex: 2021)"),
+            uf_id: zod_1.z.number().int().positive().optional().describe("ID do estado (ex: 35=SP). Omita para todos."),
+            per_capita: zod_1.z.boolean().default(false).describe("true=PIB per capita, false=PIB total"),
+        }),
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    }, async ({ ano, uf_id, per_capita }) => {
+        try {
+            const localidade = uf_id ? `N3[${uf_id}]` : "N3[all]";
+            const variavel = per_capita ? "47" : "37"; // 37=PIB total, 47=PIB per capita
+            const url = `${ibge_client_js_1.IBGE_API.v3}/agregados/5938/periodos/${ano}/variaveis/${variavel}?localidades=${localidade}&view=flat`;
+            const dados = await (0, ibge_client_js_1.ibgeFetch)(url, cache_js_1.TTL.SIDRA_DATA);
+            const series = dados?.[0]?.resultados?.[0]?.series ?? [];
+            if (series.length === 0) {
+                return {
+                    content: [{
+                            type: "text",
+                            text: `Dados não encontrados para ${ano}.\n\nVerifique se o ano está disponível. Dados de PIB geralmente têm 2-3 anos de defasagem.`
+                        }]
+                };
+            }
+            const estados = series.map((s) => ({
+                nome: s.localidade.nome,
+                id: s.localidade.id,
+                valor: parseFloat(Object.values(s.serie)[0] ?? "0"),
+            })).filter((e) => e.valor > 0);
+            estados.sort((a, b) => b.valor - a.valor);
+            if (uf_id && estados.length === 1) {
+                // Resultado único
+                const estado = estados[0];
+                const valorFormatado = per_capita
+                    ? `R$ ${estado.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                    : `R$ ${(estado.valor / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 3 })} mil`;
+                return {
+                    content: [{
+                            type: "text",
+                            text: `## ${estado.nome} — PIB ${ano}\n\n**${per_capita ? "PIB per capita" : "PIB total"}:** ${valorFormatado}\n\n_Fonte: IBGE PIB dos Municípios (Tabela 5938)_`
+                        }]
+                };
+            }
+            // Múltiplos estados - ranking
+            const total = estados.reduce((acc, e) => acc + e.valor, 0);
+            const linhas = estados.map((e, i) => {
+                const pct = ((e.valor / total) * 100).toFixed(2);
+                const valorFormatado = per_capita
+                    ? `R$ ${e.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                    : `R$ ${(e.valor / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 0 })} mil`;
+                return `${i + 1}. **${e.nome}**: ${valorFormatado}${per_capita ? "" : ` (${pct}%)`}`;
+            });
+            const titulo = per_capita ? "PIB per capita" : "PIB total";
+            const totalFormatado = per_capita
+                ? ""
+                : `\n**Brasil:** R$ ${(total / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 0 })} mil`;
+            return {
+                content: [{
+                        type: "text",
+                        text: (0, ibge_client_js_1.truncateIfNeeded)(`## ${titulo} por Estado — ${ano}${totalFormatado}\n\n` +
+                            linhas.join("\n") +
+                            `\n\n_Fonte: IBGE PIB dos Municípios (Tabela 5938)_\n_${per_capita ? "Valores em reais por habitante" : "Valores em milhares de reais"}_`)
                     }]
             };
         }
