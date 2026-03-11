@@ -5,6 +5,16 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.0.2] - 2026-03-11
+
+### 🐛 Corrigido
+
+#### IPCA agora usa tabela 1737 com dados atualizados até 2026
+- **Problema**: `ibge_ipca` retornava dados apenas até 2019 (tabela 1419 descontinuada)
+- **Solução**: Migrado para tabela SIDRA 1737 (série histórica completa desde 1979)
+- **Impacto**: Dados do IPCA agora incluem **janeiro/2026** e são atualizados mensalmente
+- **Exemplo**: `ibge_ipca(ultimos_meses=12, tipo='variacao_acumulada_12_meses')` → dados de 2025/2026 ✅
+
 ## [2.0.1] - 2026-03-11
 
 ### 🐛 Corrigido

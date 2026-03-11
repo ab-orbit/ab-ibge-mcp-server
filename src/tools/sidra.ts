@@ -416,7 +416,9 @@ Retorna: série histórica com variação percentual por mês.`,
         const varMap: Record<string, string> = { variacao_mensal: "63", variacao_acumulada_ano: "69", variacao_acumulada_12_meses: "2265" };
         // Para variações acumuladas, cada ponto já é um acumulado, então usamos "last N" normalmente
         const periodo = `last%20${ultimos_meses}`;
-        const url = `${IBGE_API.v3}/agregados/1419/periodos/${periodo}/variaveis/${varMap[tipo]}?localidades=N1[all]`;
+        // IMPORTANTE: Tabela 1737 tem série histórica completa desde 1979 até presente
+        // Tabela 1419 antiga só tinha dados até 2019
+        const url = `${IBGE_API.v3}/agregados/1737/periodos/${periodo}/variaveis/${varMap[tipo]}?localidades=N1[all]`;
         const dados = await ibgeFetch<SidraResultado[]>(url);
         return { content: [{ type: "text", text: `**IPCA — ${tipo.replace(/_/g, " ")}** (últimos ${ultimos_meses} meses)\n${formatarResultadoSidra(dados)}` }] };
       } catch (err) {
