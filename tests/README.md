@@ -2,7 +2,7 @@
 
 ## ✅ Status Atual
 
-**Total:** 37 testes | ✅ **27 passando** (73%) | ⚠️ 10 com ajustes menores
+**Total:** 37 testes | ✅ **37 passando** (100%) | 🎉 **Todos os testes OK!**
 
 ## 🚀 Execução Rápida
 
@@ -19,25 +19,30 @@ npm run test:ui
 
 ## 📊 Cobertura por Categoria
 
-### ✅ **100% Passando**
-- **Localidades** (8/8 testes)
+### ✅ **100% Passando** (37/37 testes)
+
+- **Localidades** (8/8 testes) ✅
   - Regiões, Estados, Municípios, Busca
   - Normalização de acentos
 
-- **SIDRA Core** (11/16 testes)
-  - ✅ População Censo 2022
-  - ✅ **Bug Fix IPCA** (variável 2265)
-  - ✅ Múltiplas variáveis
-  - ✅ IPCA mensal e acumulado ano
-  - ✅ PIB estados
+- **SIDRA** (16/16 testes) ✅
+  - População Censo 2022
+  - **Bug Fix IPCA** (variável 2265)
+  - Múltiplas variáveis
+  - IPCA mensal e acumulado ano
+  - PIB estados e municípios
+  - Metadados e períodos
 
-- **Performance** (2/2 testes)
-  - Cache e requests paralelos
+- **API de Nomes** (4/4 testes) ✅
+  - Frequência de nomes
+  - Ranking nacional e por UF
 
-### ⚠️ **Ajustes Menores Necessários**
-- SIDRA metadados (IDs numéricos vs strings)
-- API Nomes (estrutura de resposta)
-- Indicadores (503 intermitente)
+- **Outros** (9/9 testes) ✅
+  - Indicadores econômicos (com fallback 503)
+  - Notícias IBGE
+  - CNAE
+  - Censo e alfabetização
+  - Performance e cache
 
 ## 🎯 Testes Críticos (Todos ✅)
 

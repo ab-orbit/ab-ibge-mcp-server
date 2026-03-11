@@ -8,11 +8,7 @@ export default defineConfig({
     hookTimeout: 30000,
     teardownTimeout: 10000,
     pool: "forks", // Use forks for better isolation
-    poolOptions: {
-      forks: {
-        singleFork: true, // Avoid rate limiting
-      },
-    },
+    singleFork: true, // Avoid rate limiting (moved from poolOptions in Vitest 4)
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
