@@ -6,6 +6,8 @@ import { registerSidraTools } from "./tools/sidra.js";
 import { registerMalhaNoticias } from "./tools/malha-noticias.js";
 import { registerIndicadoresTools } from "./tools/indicadores.js";
 import { registerCensoTools } from "./tools/censo.js";
+import { registerCnaeTools } from "./tools/cnae.js";
+import { registerNomesTools } from "./tools/nomes.js";
 
 const server = new McpServer({
   name: "ibge-mcp-server",
@@ -17,11 +19,13 @@ registerSidraTools(server);
 registerMalhaNoticias(server);
 registerIndicadoresTools(server);
 registerCensoTools(server);
+registerCnaeTools(server);
+registerNomesTools(server);
 
 async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("✅ IBGE MCP Server iniciado — 15+ ferramentas disponíveis");
+  console.error("✅ IBGE MCP Server iniciado — 27+ ferramentas disponíveis");
 }
 
 main().catch((err: unknown) => {

@@ -8,6 +8,8 @@ const sidra_js_1 = require("./tools/sidra.js");
 const malha_noticias_js_1 = require("./tools/malha-noticias.js");
 const indicadores_js_1 = require("./tools/indicadores.js");
 const censo_js_1 = require("./tools/censo.js");
+const cnae_js_1 = require("./tools/cnae.js");
+const nomes_js_1 = require("./tools/nomes.js");
 const server = new mcp_js_1.McpServer({
     name: "ibge-mcp-server",
     version: "1.0.0",
@@ -17,10 +19,12 @@ const server = new mcp_js_1.McpServer({
 (0, malha_noticias_js_1.registerMalhaNoticias)(server);
 (0, indicadores_js_1.registerIndicadoresTools)(server);
 (0, censo_js_1.registerCensoTools)(server);
+(0, cnae_js_1.registerCnaeTools)(server);
+(0, nomes_js_1.registerNomesTools)(server);
 async function main() {
     const transport = new stdio_js_1.StdioServerTransport();
     await server.connect(transport);
-    console.error("✅ IBGE MCP Server iniciado — 15+ ferramentas disponíveis");
+    console.error("✅ IBGE MCP Server iniciado — 27+ ferramentas disponíveis");
 }
 main().catch((err) => {
     console.error("❌ Erro:", err);

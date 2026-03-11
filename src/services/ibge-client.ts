@@ -1,6 +1,8 @@
 // services/ibge-client.ts
 // Cliente HTTP centralizado para todas as APIs do IBGE
 
+import { cache } from "./cache.js";
+
 export const IBGE_API = {
   v1: "https://servicodados.ibge.gov.br/api/v1",
   v2: "https://servicodados.ibge.gov.br/api/v2",
@@ -18,40 +20,96 @@ export class IBGEApiError extends Error {
   }
 }
 
-export async function ibgeFetch<T>(url: string): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    });
+async function fetchWithRetry<T>(
+  url: string,
+  retries = 3,
+  baseDelay = 500
+): Promise<T> {
+  let lastError: Error | undefined;
 
-    clearTimeout(timeout);
+  for (let attempt = 0; attempt < retries; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
-    if (!response.ok) {
-      throw new IBGEApiError(
-        `IBGE API retornou status ${response.status}: ${response.statusText}`,
-        response.status,
-        url
-      );
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
+      });
+
+      clearTimeout(timeout);
+
+      // Retry on 503/504 (server errors)
+      if (response.status === 503 || response.status === 504) {
+        if (attempt < retries - 1) {
+          const delay = baseDelay * Math.pow(2, attempt);
+          await sleep(delay);
+          continue;
+        }
+      }
+
+      if (!response.ok) {
+        throw new IBGEApiError(
+          `IBGE API retornou status ${response.status}: ${response.statusText}`,
+          response.status,
+          url
+        );
+      }
+
+      const data = (await response.json()) as T;
+      return data;
+    } catch (err) {
+      clearTimeout(timeout);
+
+      if (err instanceof IBGEApiError) {
+        lastError = err;
+        if (err.status !== 503 && err.status !== 504) {
+          throw err; // Don't retry on non-retryable errors
+        }
+      } else if (err instanceof Error && err.name === "AbortError") {
+        lastError = new IBGEApiError("Timeout: a API do IBGE demorou mais de 15s", undefined, url);
+      } else {
+        lastError = new IBGEApiError(
+          `Erro ao conectar com a API do IBGE: ${err instanceof Error ? err.message : String(err)}`,
+          undefined,
+          url
+        );
+      }
+
+      // If not last attempt and error is retryable, continue
+      if (attempt < retries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt);
+        await sleep(delay);
+        continue;
+      }
     }
-
-    const data = (await response.json()) as T;
-    return data;
-  } catch (err) {
-    clearTimeout(timeout);
-    if (err instanceof IBGEApiError) throw err;
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new IBGEApiError("Timeout: a API do IBGE demorou mais de 15s", undefined, url);
-    }
-    throw new IBGEApiError(
-      `Erro ao conectar com a API do IBGE: ${err instanceof Error ? err.message : String(err)}`,
-      undefined,
-      url
-    );
   }
+
+  throw lastError || new IBGEApiError("Erro desconhecido após retries", undefined, url);
+}
+
+export async function ibgeFetch<T>(url: string, cacheTtl?: number): Promise<T> {
+  // Check cache first if TTL is provided
+  if (cacheTtl !== undefined) {
+    const cached = cache.get<T>(url);
+    if (cached !== null) {
+      return cached;
+    }
+  }
+
+  // Fetch with retry
+  const data = await fetchWithRetry<T>(url);
+
+  // Store in cache if TTL is provided
+  if (cacheTtl !== undefined) {
+    cache.set(url, data, cacheTtl);
+  }
+
+  return data;
 }
 
 export function formatToolError(err: unknown): string {

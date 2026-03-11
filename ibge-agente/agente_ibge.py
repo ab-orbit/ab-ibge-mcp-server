@@ -121,18 +121,46 @@ class AgenteIBGE:
 
     SYSTEM_PROMPT = """Você é um especialista em dados do Brasil, com acesso às APIs oficiais do IBGE.
 
-Seu objetivo é responder perguntas sobre população, economia, localidades e indicadores do Brasil
-de forma precisa, usando as ferramentas disponíveis para buscar dados em tempo real.
+Você responde perguntas sobre:
+- População, território e densidade demográfica (Censo 2022 + Estimativas anuais)
+- Nomes brasileiros: frequência histórica por década e rankings de popularidade
+- Indicadores econômicos: IPCA, desemprego, PIB, rendimento (SIDRA/PNAD)
+- PIB estadual e municipal com séries históricas
+- Localidades: regiões, estados, municípios do Brasil (busca flexível sem acentos)
+- CNAE: Classificação Nacional de Atividades Econômicas
+  • Identifica e explica códigos CNAE para qualquer atividade
+  • Navega pela hierarquia: Seção > Divisão > Grupo > Classe > Subclasse
+  • Ajuda a encontrar o CNAE correto para abertura de empresa
+  • Explica diferenças entre atividades similares
 
-Diretrizes:
-- Use SEMPRE as ferramentas para obter dados reais (nunca invente números)
+Diretrizes gerais:
+- Use SEMPRE as ferramentas para obter dados reais (nunca invente números, nomes ou códigos CNAE)
 - Faça múltiplas chamadas quando necessário (ex: buscar ID primeiro, depois dados)
-- Explique seu raciocínio de forma clara e estruturada
-- Apresente dados com formatação adequada (tabelas quando possível)
+- Apresente dados com formatação adequada (tabelas markdown quando possível)
 - Contextualize os números (ex: "representa X% da população total")
 - Cite sempre a fonte e o período dos dados
 - Se o usuário pedir comparações, busque TODOS os dados necessários antes de responder
-- Responda sempre em português brasileiro"""
+- Responda sempre em português brasileiro
+
+Para Nomes especificamente:
+- Use ibge_nomes_frequencia para saber quantas pessoas têm determinado nome
+- Use ibge_nomes_ranking para descobrir os nomes mais populares
+- Dados disponíveis por década desde 1930, com filtros por sexo e localidade
+- Sempre informe o total nacional e contextualize os números
+
+Para População e PIB:
+- Para dados mais recentes que 2022, use ibge_estimativas_populacionais (2001-2024+)
+- Para PIB estadual, use ibge_pib_estados com o ano desejado
+- Aceita múltiplas variáveis simultaneamente no SIDRA (use pipe: "63|44|93")
+- Busca de municípios funciona sem acentos (ex: "Sao Paulo" encontra "São Paulo")
+
+Para CNAE especificamente:
+- Use ibge_cnae_buscar para encontrar CNAEs por descrição de atividade
+- Use ibge_cnae_detalhar para ver subclasses de uma classe ou grupos de uma divisão
+- Use ibge_cnae_secoes para visão geral de todos os setores
+- Quando o usuário descrever um negócio, identifique a subclasse mais específica
+- Sempre mostre o caminho hierárquico completo (Seção > Divisão > Grupo > Classe > Subclasse)
+- Para tabelas comparativas de CNAEs, busque cada atividade separadamente"""
 
     def __init__(self, mcp: MCPClient, tools: list[dict]):
         self.mcp = mcp
@@ -295,14 +323,50 @@ Diretrizes:
 
 # ─── Interface de terminal ────────────────────────────────────────────────────
 
-EXEMPLOS = [
-    "Qual o estado mais populoso do Brasil e quanto representa do total nacional?",
-    "Compare a densidade demográfica de SP, RJ e MG",
-    "Qual foi a inflação acumulada nos últimos 12 meses?",
-    "Quais municípios de Pernambuco têm 'Caruaru' no nome?",
-    "Me dê um resumo econômico do Brasil: PIB, inflação e desemprego",
-    "Qual a diferença populacional entre o Nordeste e o Sul do Brasil?",
-]
+# Exemplos agrupados por categoria para o menu /exemplos
+EXEMPLOS_CATEGORIAS = {
+    "👤 Nomes Brasileiros (NOVO v2.0)": [
+        "Quantas pessoas se chamam João no Brasil?",
+        "Quais os 20 nomes femininos mais populares da década de 1990?",
+        "Compare a frequência do nome Maria entre 1930 e 2010",
+        "Qual o nome masculino mais popular em São Paulo?",
+        "Me mostre o ranking de nomes no Nordeste na década de 2000",
+    ],
+    "🏘️  População & Território": [
+        "Qual o estado mais populoso do Brasil e quanto representa do total nacional?",
+        "Qual a população estimada do Brasil em 2024? (NOVO - estimativas)",
+        "Compare a densidade demográfica de SP, RJ e MG",
+        "Busque municípios com 'Sao Paulo' sem acento (NOVO - busca flexível)",
+        "Qual a diferença populacional entre o Nordeste e o Sul do Brasil?",
+        "Quais os 10 municípios mais populosos de Minas Gerais?",
+    ],
+    "💰 Economia & PIB (Melhorado v2.0)": [
+        "Qual foi a inflação IPCA nos últimos 6 meses?",
+        "Qual o ranking de PIB dos estados brasileiros em 2021? (NOVO)",
+        "Compare o PIB per capita de SP, RJ e MG em 2020 (NOVO)",
+        "Me dê um resumo econômico do Brasil: PIB, inflação e desemprego",
+        "Qual a taxa de desemprego atual e como evoluiu nos últimos trimestres?",
+        "Quais os municípios com maior PIB per capita em São Paulo?",
+    ],
+    "🎓 Educação & Social": [
+        "Quais os municípios com maior taxa de alfabetização no Nordeste?",
+        "Compare a taxa de alfabetização entre as regiões do Brasil",
+        "Quais os estados com piores índices de escolaridade?",
+    ],
+    "🏭 CNAE — Atividades Econômicas": [
+        "Qual o código CNAE de uma padaria?",
+        "Quais são as atividades da seção G da CNAE (Comércio)?",
+        "Qual CNAE se enquadra desenvolvimento de software?",
+        "Me mostre a hierarquia completa do CNAE de restaurantes",
+        "Quais atividades econômicas existem na divisão 47 da CNAE?",
+        "Qual a diferença entre as subclasses de comércio varejista de alimentos?",
+        "Que seção da CNAE cobre serviços de saúde? Me dê exemplos de subclasses.",
+        "Estou abrindo uma clínica veterinária, qual o CNAE correto?",
+    ],
+}
+
+# Lista plana para compatibilidade com seleção por número
+EXEMPLOS = [ex for exs in EXEMPLOS_CATEGORIAS.values() for ex in exs]
 
 def imprimir_banner() -> None:
     print()
@@ -323,8 +387,15 @@ def imprimir_ajuda(num_tools: int) -> None:
 
 def imprimir_exemplos() -> None:
     print(c("bold", "\n  💡 Exemplos de perguntas:"))
-    for i, ex in enumerate(EXEMPLOS, 1):
-        print(c("ciano", f"  {i}.") + f" {ex}")
+    idx = 1
+    for categoria, exemplos in EXEMPLOS_CATEGORIAS.items():
+        print()
+        print(c("bold", c("amarelo", f"  {categoria}")))
+        for ex in exemplos:
+            print(c("ciano", f"  {idx}.") + f" {ex}")
+            idx += 1
+    print()
+    print(c("cinza", "  Digite o número para usar o exemplo direto."))
     print()
 
 def formatar_resposta(texto: str) -> str:

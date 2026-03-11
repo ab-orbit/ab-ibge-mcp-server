@@ -8,7 +8,7 @@ export declare class IBGEApiError extends Error {
     readonly endpoint?: string | undefined;
     constructor(message: string, status?: number | undefined, endpoint?: string | undefined);
 }
-export declare function ibgeFetch<T>(url: string): Promise<T>;
+export declare function ibgeFetch<T>(url: string, cacheTtl?: number): Promise<T>;
 export declare function formatToolError(err: unknown): string;
 export declare function truncateIfNeeded(text: string, maxChars?: number): string;
 //# sourceMappingURL=ibge-client.d.ts.map

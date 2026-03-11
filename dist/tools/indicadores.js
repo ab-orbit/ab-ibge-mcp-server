@@ -4,8 +4,8 @@ exports.registerIndicadoresTools = registerIndicadoresTools;
 const zod_1 = require("zod");
 const ibge_client_js_1 = require("../services/ibge-client.js");
 const INDICADORES = {
-    IPCA: { tabela: "1737", variavel: "63", nome: "IPCA - Variação Mensal", unidade: "%" },
-    IPCA_ACUMULADO: { tabela: "1737", variavel: "69", nome: "IPCA - Acumulado 12 meses", unidade: "%" },
+    IPCA: { tabela: "1419", variavel: "63", nome: "IPCA - Variação Mensal", unidade: "%" },
+    IPCA_ACUMULADO: { tabela: "1419", variavel: "2266", nome: "IPCA - Acumulado 12 meses", unidade: "%" },
     DESEMPREGO: { tabela: "6381", variavel: "4099", nome: "PNAD - Taxa de Desocupação", unidade: "%" },
     RENDIMENTO: { tabela: "6403", variavel: "5929", nome: "PNAD - Rendimento Médio per capita", unidade: "R$" },
     INPC: { tabela: "1736", variavel: "44", nome: "INPC - Variação Mensal", unidade: "%" },

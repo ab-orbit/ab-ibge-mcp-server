@@ -5,8 +5,8 @@ import { IBGE_API, ibgeFetch, formatToolError, truncateIfNeeded } from "../servi
 import type { SidraResultado } from "../types.js";
 
 const INDICADORES: Record<string, { tabela: string; variavel: string; nome: string; unidade: string }> = {
-  IPCA: { tabela: "1737", variavel: "63", nome: "IPCA - Variação Mensal", unidade: "%" },
-  IPCA_ACUMULADO: { tabela: "1737", variavel: "69", nome: "IPCA - Acumulado 12 meses", unidade: "%" },
+  IPCA: { tabela: "1419", variavel: "63", nome: "IPCA - Variação Mensal", unidade: "%" },
+  IPCA_ACUMULADO: { tabela: "1419", variavel: "2266", nome: "IPCA - Acumulado 12 meses", unidade: "%" },
   DESEMPREGO: { tabela: "6381", variavel: "4099", nome: "PNAD - Taxa de Desocupação", unidade: "%" },
   RENDIMENTO: { tabela: "6403", variavel: "5929", nome: "PNAD - Rendimento Médio per capita", unidade: "R$" },
   INPC: { tabela: "1736", variavel: "44", nome: "INPC - Variação Mensal", unidade: "%" },

@@ -2,6 +2,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { IBGE_API, ibgeFetch, formatToolError, truncateIfNeeded } from "../services/ibge-client.js";
+import { TTL } from "../services/cache.js";
 import type { SidraResultado } from "../types.js";
 
 function formatNum(v: number): string {
@@ -80,7 +81,7 @@ Retorna ranking de população com % do total nacional.`,
     async ({ uf_id }) => {
       try {
         const localidade = uf_id ? `N3[${uf_id}]` : "N3[all]";
-        const url = `${IBGE_API.v3}/agregados/9514/periodos/2022/variaveis/93?localidades=${localidade}&view=flat`;
+        const url = `${IBGE_API.v3}/agregados/9514/periodos/2022/variaveis/93?localidades=${localidade}`;
         const dados = await ibgeFetch<SidraResultado[]>(url);
         const series = getSerie(dados);
         if (series.length === 0) return { content: [{ type: "text", text: "Dados não encontrados." }] };
@@ -127,10 +128,10 @@ Retorna população, área em km² e densidade por estado, ordenados por densida
         const localidade = uf_id ? `N3[${uf_id}]` : "N3[all]";
         const [dadosPop, dadosArea] = await Promise.all([
           ibgeFetch<SidraResultado[]>(
-            `${IBGE_API.v3}/agregados/9514/periodos/2022/variaveis/93?localidades=${localidade}&view=flat`
+            `${IBGE_API.v3}/agregados/9514/periodos/2022/variaveis/93?localidades=${localidade}`
           ),
           ibgeFetch<SidraResultado[]>(
-            `${IBGE_API.v3}/agregados/9517/periodos/2022/variaveis/82?localidades=${localidade}&view=flat`
+            `${IBGE_API.v3}/agregados/9517/periodos/2022/variaveis/82?localidades=${localidade}`
           ).catch(() => [] as SidraResultado[]),
         ]);
 
@@ -154,6 +155,90 @@ Retorna população, área em km² e densidade por estado, ordenados por densida
             type: "text", text: truncateIfNeeded(
               `## Densidade Demográfica por Estado — Censo 2022\n\n` +
               linhas.join("\n") + `\n\n_Fonte: IBGE Censo 2022_`
+            )
+          }]
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: formatToolError(err) }] };
+      }
+    }
+  );
+
+  server.registerTool(
+    "ibge_estimativas_populacionais",
+    {
+      title: "Estimativas Populacionais Anuais",
+      description: `Consulta estimativas de população para anos entre censos (2001-2024+).
+As estimativas são usadas pelo TCU para repasse de verbas e são atualizadas anualmente.
+
+Args:
+  - ano (obrigatório): Ano da estimativa (ex: 2024, 2023, 2022...)
+  - localidade (opcional): "BR" (Brasil), "estados" (todos estados), ou código IBGE específico
+  - municipio_id (opcional): Código IBGE de 7 dígitos para consulta de município específico
+
+Use para dados mais recentes que o Censo 2022 ou para anos intermediários.
+Exemplo: População estimada de 2024, população de município não finalizado no censo.`,
+      inputSchema: z.object({
+        ano: z.number().int().min(2001).max(2030).describe("Ano da estimativa"),
+        localidade: z.enum(["BR", "estados"]).optional().describe("BR=Brasil, estados=todos estados"),
+        municipio_id: z.number().int().positive().optional().describe("Código IBGE do município (7 dígitos)"),
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args) => {
+      try {
+        const { ano, localidade, municipio_id } = args;
+
+        let nivel = "N1[all]"; // Brasil por padrão
+        if (localidade === "estados") {
+          nivel = "N3[all]";
+        } else if (municipio_id) {
+          nivel = `N6[${municipio_id}]`;
+        }
+
+        const url = `${IBGE_API.v3}/agregados/6579/periodos/${ano}/variaveis/9324?localidades=${nivel}`;
+        const dados = await ibgeFetch<SidraResultado[]>(url, TTL.SIDRA_DATA);
+
+        const series = getSerie(dados);
+        if (series.length === 0) {
+          return {
+            content: [{
+              type: "text",
+              text: `Dados não encontrados para o ano ${ano}.\n\nVerifique se o ano está disponível na base do IBGE (geralmente 2001-2024).`
+            }]
+          };
+        }
+
+        if (municipio_id || localidade === undefined) {
+          // Resultado único
+          const item = series[0];
+          return {
+            content: [{
+              type: "text",
+              text: `## ${item.nome} — Estimativa ${ano}\n\n**População estimada:** ${formatNum(item.valor)} habitantes\n\n_Fonte: IBGE Estimativas de População (Tabela 6579)_`
+            }]
+          };
+        }
+
+        // Múltiplas localidades
+        const total = series.reduce((acc, s) => acc + s.valor, 0);
+        series.sort((a, b) => b.valor - a.valor);
+
+        const linhas = series.map((s, i) => {
+          const pct = localidade === "estados" ? ` (${((s.valor / total) * 100).toFixed(2)}%)` : "";
+          return `${i + 1}. **${s.nome}**: ${formatNum(s.valor)} hab${pct}`;
+        });
+
+        const titulo = localidade === "estados" ? "por Estado" : "Brasil";
+
+        return {
+          content: [{
+            type: "text",
+            text: truncateIfNeeded(
+              `## Estimativa de População ${titulo} — ${ano}\n\n` +
+              (localidade === "estados" ? `**Brasil:** ${formatNum(total)} habitantes\n\n` : "") +
+              linhas.join("\n") +
+              `\n\n_Fonte: IBGE Estimativas de População (Tabela 6579)_`
             )
           }]
         };

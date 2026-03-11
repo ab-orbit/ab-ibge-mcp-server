@@ -75,8 +75,12 @@ Retorna: id (7 dígitos), nome, microrregião. Use o id em consultas SIDRA de mu
             const uf_nome = municipios[0]?.microrregiao?.mesorregiao?.UF?.nome ?? uf;
             let lista = municipios.map((m) => municipioToSimples(m, uf_sigla, uf_nome));
             if (nome_filtro) {
-                const f = nome_filtro.toLowerCase();
-                lista = lista.filter((m) => m.nome.toLowerCase().includes(f));
+                // Normalizar acentos para busca flexível (São Paulo = Sao Paulo)
+                const filtroNorm = nome_filtro.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                lista = lista.filter((m) => {
+                    const nomeNorm = m.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    return nomeNorm.includes(filtroNorm);
+                });
             }
             lista.sort((a, b) => a.nome.localeCompare(b.nome));
             const texto = lista.map((m) => `• [${m.id}] ${m.nome}${m.microrregiao ? ` (${m.microrregiao})` : ""}`).join("\n");
@@ -105,9 +109,13 @@ Retorna: código IBGE, nome, UF, mesorregião de todos os municípios encontrado
                 ? `${ibge_client_js_1.IBGE_API.v1}/localidades/estados/${uf}/municipios`
                 : `${ibge_client_js_1.IBGE_API.v1}/localidades/municipios`;
             const municipios = await (0, ibge_client_js_1.ibgeFetch)(url);
-            const filtro = nome.toLowerCase();
+            // Normalizar acentos para busca flexível (São Paulo = Sao Paulo)
+            const filtroNorm = nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             const encontrados = municipios
-                .filter((m) => m.nome.toLowerCase().includes(filtro))
+                .filter((m) => {
+                const nomeNorm = m.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                return nomeNorm.includes(filtroNorm);
+            })
                 .map((m) => municipioToSimples(m))
                 .sort((a, b) => a.nome.localeCompare(b.nome));
             if (encontrados.length === 0) {
