@@ -235,10 +235,11 @@ function registerPaisesTools(server) {
             }
             let texto = `**Indicadores - ${dados[0].series[0].pais.nome}** (${codigo_iso})\n\n`;
             for (const indicador of dados) {
-                if (!indicador || !indicador.unidade || !indicador.series || indicador.series.length === 0) {
+                if (!indicador || !indicador.series || indicador.series.length === 0) {
                     continue; // Skip invalid indicators
                 }
-                texto += `📊 **${indicador.indicador}** (${indicador.unidade.id})\n`;
+                const unidadeTexto = indicador.unidade && indicador.unidade.id ? ` (${indicador.unidade.id})` : "";
+                texto += `📊 **${indicador.indicador}**${unidadeTexto}\n`;
                 const serie = indicador.series[0].serie;
                 const valores = serie
                     .map((obj) => {
@@ -259,7 +260,8 @@ function registerPaisesTools(server) {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                     });
-                    texto += `  • ${v.ano}: ${valorFormatado} ${indicador.unidade.id}\n`;
+                    const unidade = indicador.unidade && indicador.unidade.id ? ` ${indicador.unidade.id}` : "";
+                    texto += `  • ${v.ano}: ${valorFormatado}${unidade}\n`;
                 });
                 texto += "\n";
             }

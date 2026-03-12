@@ -195,7 +195,7 @@ export interface IndicadorPaisSerie {
         id: string;
         classe: string;
         multiplicador: number;
-    };
+    } | null;
     series: Array<{
         pais: {
             id: string;
