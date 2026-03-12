@@ -10,6 +10,7 @@ const indicadores_js_1 = require("./tools/indicadores.js");
 const censo_js_1 = require("./tools/censo.js");
 const cnae_js_1 = require("./tools/cnae.js");
 const nomes_js_1 = require("./tools/nomes.js");
+const paises_js_1 = require("./tools/paises.js");
 const server = new mcp_js_1.McpServer({
     name: "ibge-mcp-server",
     version: "1.0.0",
@@ -21,10 +22,11 @@ const server = new mcp_js_1.McpServer({
 (0, censo_js_1.registerCensoTools)(server);
 (0, cnae_js_1.registerCnaeTools)(server);
 (0, nomes_js_1.registerNomesTools)(server);
+(0, paises_js_1.registerPaisesTools)(server);
 async function main() {
     const transport = new stdio_js_1.StdioServerTransport();
     await server.connect(transport);
-    console.error("✅ IBGE MCP Server iniciado — 27+ ferramentas disponíveis");
+    console.error("✅ IBGE MCP Server iniciado — 30+ ferramentas disponíveis");
 }
 main().catch((err) => {
     console.error("❌ Erro:", err);

@@ -110,28 +110,49 @@ class MCPClient:
 SYSTEM_PROMPT = """You are a function-calling AI assistant for Brazilian official data (IBGE).
 
 WORKFLOW:
-1. User asks → Call appropriate tool ONCE with correct parameters
-2. Receive results → Analyze and respond in Portuguese
-3. NEVER call the same tool again
+1. User asks → Call appropriate tool(s) with correct parameters
+2. Receive results → Decide if more data is needed or respond
+3. For comprehensive queries, make multiple sequential calls
+4. After gathering all data, respond in Portuguese
+
+⚠️ CRITICAL: Municipality Lookup Workflow
+When user asks about a SPECIFIC MUNICIPALITY BY NAME (e.g., "Bezerros", "São Paulo"):
+- Step 1: ALWAYS call ibge_buscar_municipio(nome="CityName", uf="StateCode") FIRST
+- Step 2+: Use the 7-digit code to query ALL available data sources
+- NEVER guess or invent municipality codes
+
+🔍 COMPREHENSIVE DATA REQUEST:
+When user asks for "todas as informações" / "all information" / "busque tudo" about a municipality:
+1. Call ibge_buscar_municipio to get code
+2. Call ibge_populacao_censo2022 (census population)
+3. Call ibge_pib_municipios (GDP data)
+4. Call ibge_alfabetizacao_municipios (literacy rate)
+5. Call ibge_estimativas_populacionais (population estimates 2001-2024)
+6. Respond with ALL collected data organized by topic
+
+Example - COMPREHENSIVE WORKFLOW:
+User: "Busque todas as informações de Bezerros, Pernambuco"
+Step 1: ibge_buscar_municipio(nome="Bezerros", uf="PE") → code: 2601904
+Step 2: ibge_populacao_censo2022(nivel="municipio", codigo_localidade="2601904")
+Step 3: ibge_pib_municipios(municipio_id="2601904", ano="2021")
+Step 4: ibge_alfabetizacao_municipios(municipio_id="2601904")
+Step 5: ibge_estimativas_populacionais(nivel="municipio", localidade="2601904")
+Response: [comprehensive report with all data]
 
 TOOL PARAMETERS EXAMPLES:
-- ibge_search_nomes(name="Maria") to search for name statistics
-- ibge_metadata_indicators(query="IPCA") to search for indicators
-- ibge_get_aggregate(query="população") to get aggregate data
+- ibge_buscar_municipio(nome="Bezerros", uf="PE") → ALWAYS FIRST
+- ibge_populacao_censo2022(nivel="municipio", codigo_localidade="CODE")
+- ibge_pib_municipios(municipio_id="CODE", ano="2021")
+- ibge_alfabetizacao_municipios(municipio_id="CODE")
+- ibge_estimativas_populacionais(nivel="municipio", localidade="CODE")
 
 CRITICAL RULES:
-- Call tools ONCE only
-- After tool results, respond immediately in Portuguese
-- Do NOT explain what to do, just do it
-- Do NOT call tools multiple times
+- For single-topic queries: get code → query that specific topic
+- For comprehensive queries: get code → query ALL available sources
+- NEVER stop after just one data source if user asked for "all information"
+- Respond in Portuguese after gathering all requested data
 
-Example:
-User: "Quantas pessoas se chamam Maria?"
-You: [calls ibge_search_nomes with name="Maria"]
-System: [returns statistics]
-You: "De acordo com o IBGE, existem aproximadamente X pessoas chamadas Maria no Brasil..."
-
-Remember: ONE tool call per question!"""
+Remember: Look up code first, then query systematically!"""
 
 # ─── Conversor de ferramentas ────────────────────────────────────────────────
 
@@ -152,6 +173,7 @@ def filter_relevant_tools(user_message: str, all_tools: list[dict], max_tools: i
     Filtra ferramentas relevantes baseado na mensagem do usuário.
     Isso ajuda modelos menores (como Llama 3.2 3B) a focar nas ferramentas certas.
     """
+    import re
     message_lower = user_message.lower()
 
     # Palavras-chave para identificar tipo de consulta (nomes corretos do IBGE MCP)
@@ -160,7 +182,7 @@ def filter_relevant_tools(user_message: str, all_tools: list[dict], max_tools: i
         "ipca": ["ipca", "inflação", "índice", "preço"],
         "pib": ["pib", "produto interno", "economia", "econômico"],
         "população": ["população", "habitantes", "populoso", "pessoas", "censo", "demográfica"],
-        "município": ["município", "cidade", "cidades", "municipal"],
+        "município": ["município", "cidade", "cidades", "municipal", " de ", " em "],
         "estado": ["estado", "estados", "uf"],
         "região": ["região", "regiões", "regional"],
         "tabela": ["tabela", "sidra", "dados", "estatística"],
@@ -168,6 +190,22 @@ def filter_relevant_tools(user_message: str, all_tools: list[dict], max_tools: i
         "notícia": ["notícia", "notícias", "últimas", "novidades"],
         "cnae": ["cnae", "atividade econômica", "setor"],
     }
+
+    # 🆕 DETECTA se usuário está pedindo dados de município ESPECÍFICO
+    municipio_keywords = ["censo de", "população de", "pib de", "dados de", "informações de", " em ", " de "]
+    has_municipio_mention = any(kw in message_lower for kw in municipio_keywords)
+    has_7_digit_code = bool(re.search(r'\b\d{7}\b', user_message))
+
+    # 🆕 DETECTA se usuário quer TODAS as informações
+    comprehensive_keywords = ["todas", "tudo", "todos os dados", "completo", "completa", "busque tudo"]
+    wants_comprehensive = any(kw in message_lower for kw in comprehensive_keywords)
+
+    # Se menciona município mas NÃO tem código, FORÇAR inclusão das ferramentas de busca
+    force_include_search = has_municipio_mention and not has_7_digit_code
+
+    # Se quer dados abrangentes, expandir limite de ferramentas
+    if wants_comprehensive:
+        max_tools = 8  # Incluir mais ferramentas para consultas completas
 
     # Dar pontuação para cada ferramenta
     tool_scores = []
@@ -177,6 +215,21 @@ def filter_relevant_tools(user_message: str, all_tools: list[dict], max_tools: i
 
         # Remover prefixo ibge_
         short_name = tool_name.replace("ibge_", "")
+
+        # 🆕 PRIORIDADE MÁXIMA: Se precisa buscar município, incluir ferramentas de busca
+        if force_include_search and "buscar_municipio" in tool_name:
+            score += 100  # Pontuação altíssima para garantir inclusão
+
+        if force_include_search and "listar_municipios" in tool_name:
+            score += 50
+
+        # 🆕 Se quer dados completos de município, incluir TODAS as ferramentas de município
+        if wants_comprehensive and has_municipio_mention:
+            municipio_tools = ["buscar_municipio", "populacao_censo", "pib_municipios",
+                             "alfabetizacao_municipios", "estimativas_populacionais",
+                             "populacao_municipio"]
+            if any(mt in tool_name for mt in municipio_tools):
+                score += 80  # Alta prioridade para ferramentas de município
 
         # Verificar se nome da ferramenta aparece na mensagem
         if short_name in message_lower:
@@ -331,9 +384,9 @@ def run_agent_loop(
         conversation_history.append({"role": "assistant", "content": content_blocks})
         conversation_history.append({"role": "user", "content": tool_results})
 
-        # For localhost providers (smaller models), disable tools after first successful call
-        # This forces the model to respond instead of calling tools repeatedly
-        if hasattr(provider, "base_url") and iteration == 1:
+        # For localhost providers (smaller models), disable tools after SIXTH successful call
+        # This allows comprehensive workflows: search code → query multiple data sources
+        if hasattr(provider, "base_url") and iteration == 6:
             has_successful_result = any(not tr.get("is_error", False) for tr in tool_results)
             if has_successful_result:
                 disable_tools_next = True

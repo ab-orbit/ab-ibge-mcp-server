@@ -5,6 +5,23 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.1.0] - 2026-03-12
+
+### ✨ Adicionado
+
+#### Nova API de Países (v1)
+- `ibge_listar_paises` - Lista todos os 193 países do mundo com códigos ISO e localização
+- `ibge_obter_pais` - Informações detalhadas de um país (área, capital, línguas, moeda, histórico)
+- `ibge_buscar_pais` - Busca países por nome em português, inglês ou espanhol
+- Suporte completo aos códigos ISO-3166-1-ALPHA-2/3 e M49
+- Dados incluem: localização geográfica, línguas oficiais, moedas, histórico
+
+### 📊 Estatísticas
+
+- **Total de ferramentas**: 30+ (antes: 27+)
+- **Novas ferramentas**: 3
+- **Cobertura de APIs**: +1 endpoint do IBGE (Países v1)
+
 ## [2.0.2] - 2026-03-11
 
 ### 🐛 Corrigido

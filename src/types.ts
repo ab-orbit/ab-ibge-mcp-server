@@ -89,6 +89,88 @@ export interface Noticia {
   link: string;
 }
 
+export interface Pais {
+  id: {
+    "M49": number;
+    "ISO-3166-1-ALPHA-2": string;
+    "ISO-3166-1-ALPHA-3": string;
+  };
+  nome: {
+    abreviado: string;
+    "abreviado-EN": string;
+    "abreviado-ES": string;
+  };
+  area: {
+    total: string;
+    unidade: {
+      nome: string;
+      símbolo: string;
+      multiplicador: number;
+    };
+  };
+  localizacao: {
+    regiao: {
+      id: { M49: number };
+      nome: string;
+    };
+    "sub-regiao": {
+      id: { M49: number };
+      nome: string;
+    };
+    "regiao-intermediaria": {
+      id: { M49: number };
+      nome: string;
+    } | null;
+  };
+  linguas: Array<{
+    id: {
+      "ISO-639-1": string;
+      "ISO-639-2": string;
+    };
+    nome: string;
+  }>;
+  governo: {
+    capital: {
+      nome: string;
+    };
+  };
+  "unidades-monetarias": Array<{
+    id: {
+      "ISO-4217-ALPHA": string;
+      "ISO-4217-NUMERICO": string;
+    };
+    nome: string;
+  }>;
+  historico: string;
+}
+
+export interface IndicadorPais {
+  id: number;
+  indicador: string;
+  unidade: {
+    id: string;
+    classe: string;
+    multiplicador: number;
+  };
+}
+
+export interface IndicadorPaisSerie {
+  id: number;
+  indicador: string;
+  unidade: {
+    id: string;
+    classe: string;
+    multiplicador: number;
+  };
+  series: Array<{
+    pais: {
+      id: string;
+      nome: string;
+    };
+    serie: Array<Record<string, string | null>>;
+  }>;
+}
+
 export interface ToolResponse {
   content: Array<{ type: "text"; text: string }>;
   [key: string]: unknown;

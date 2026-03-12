@@ -8,6 +8,7 @@ import { registerIndicadoresTools } from "./tools/indicadores.js";
 import { registerCensoTools } from "./tools/censo.js";
 import { registerCnaeTools } from "./tools/cnae.js";
 import { registerNomesTools } from "./tools/nomes.js";
+import { registerPaisesTools } from "./tools/paises.js";
 
 const server = new McpServer({
   name: "ibge-mcp-server",
@@ -21,11 +22,12 @@ registerIndicadoresTools(server);
 registerCensoTools(server);
 registerCnaeTools(server);
 registerNomesTools(server);
+registerPaisesTools(server);
 
 async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("✅ IBGE MCP Server iniciado — 27+ ferramentas disponíveis");
+  console.error("✅ IBGE MCP Server iniciado — 30+ ferramentas disponíveis");
 }
 
 main().catch((err: unknown) => {
