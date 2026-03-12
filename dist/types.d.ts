@@ -186,7 +186,7 @@ export interface IndicadorPais {
         id: string;
         classe: string;
         multiplicador: number;
-    };
+    } | null;
 }
 export interface IndicadorPaisSerie {
     id: number;

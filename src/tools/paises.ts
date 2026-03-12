@@ -222,7 +222,8 @@ export function registerPaisesTools(server: McpServer): void {
           texto += `**${cat}** (${inds.length})\n`;
           inds.forEach((i) => {
             const nome = i.indicador.split(" - ")[1];
-            texto += `  • [${i.id}] ${nome} (${i.unidade.id})\n`;
+            const unidade = i.unidade && i.unidade.id ? ` (${i.unidade.id})` : "";
+            texto += `  • [${i.id}] ${nome}${unidade}\n`;
           });
           texto += "\n";
         }

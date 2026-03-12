@@ -27,7 +27,7 @@ registerPaisesTools(server);
 async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("✅ IBGE MCP Server iniciado — 30+ ferramentas disponíveis");
+  console.error("✅ IBGE MCP Server iniciado — 32 ferramentas disponíveis");
 }
 
 main().catch((err: unknown) => {

@@ -13,14 +13,33 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - `ibge_listar_paises` - Lista todos os 193 países do mundo com códigos ISO e localização
 - `ibge_obter_pais` - Informações detalhadas de um país (área, capital, línguas, moeda, histórico)
 - `ibge_buscar_pais` - Busca países por nome em português, inglês ou espanhol
+- `ibge_listar_indicadores_paises` - Lista 34 indicadores disponíveis organizados por categoria
+- `ibge_indicadores_pais` - Consulta séries históricas de indicadores (PIB, IDH, população, etc.)
+- `ibge_comparar_paises` - Compara indicadores entre múltiplos países com ranking
 - Suporte completo aos códigos ISO-3166-1-ALPHA-2/3 e M49
-- Dados incluem: localização geográfica, línguas oficiais, moedas, histórico
+- **34 indicadores internacionais** organizados em 6 categorias:
+  - **Economia**: PIB, exportações, importações, turismo, gastos públicos (10 indicadores)
+  - **Indicadores Sociais**: IDH, expectativa de vida, alfabetização, educação (6 indicadores)
+  - **Meio Ambiente**: áreas cultivadas, produção de petróleo/gás, áreas protegidas (5 indicadores)
+  - **População**: densidade, homens, mulheres, rural/urbana, taxas de natalidade (9 indicadores)
+  - **Redes**: telefonia celular/fixa, acesso à internet (3 indicadores)
+  - **Saúde**: consumo calórico, subnutrição (2 indicadores)
+
+### 🔧 Melhorado
+
+#### Agente Python v3
+- System prompt expandido com workflow para consultas completas de municípios
+- Detecção automática de palavras-chave para consultas abrangentes ("todas", "tudo", "completo")
+- Priorização de ferramentas de município quando necessário (pontuação +80/+100)
+- Permitir até 6 iterações para consultas completas (antes: 2 iterações)
+- Ferramentas de busca (`ibge_buscar_municipio`) incluídas automaticamente quando necessário
 
 ### 📊 Estatísticas
 
-- **Total de ferramentas**: 30+ (antes: 27+)
-- **Novas ferramentas**: 3
+- **Total de ferramentas**: 32 (antes: 27)
+- **Novas ferramentas**: 5 (países) + melhorias no agente Python
 - **Cobertura de APIs**: +1 endpoint do IBGE (Países v1)
+- **Indicadores internacionais**: 34 indicadores em 6 categorias
 
 ## [2.0.2] - 2026-03-11
 

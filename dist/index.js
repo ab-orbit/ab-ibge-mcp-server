@@ -26,7 +26,7 @@ const server = new mcp_js_1.McpServer({
 async function main() {
     const transport = new stdio_js_1.StdioServerTransport();
     await server.connect(transport);
-    console.error("✅ IBGE MCP Server iniciado — 30+ ferramentas disponíveis");
+    console.error("✅ IBGE MCP Server iniciado — 32 ferramentas disponíveis");
 }
 main().catch((err) => {
     console.error("❌ Erro:", err);
