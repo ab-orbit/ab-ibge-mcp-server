@@ -2,24 +2,40 @@
 
 ## ✅ Status Atual
 
-**Total:** 37 testes | ✅ **37 passando** (100%) | 🎉 **Todos os testes OK!**
+**Total:** 58 testes | ✅ **58 passando** (100%) | 🎉 **Todos os testes OK!**
 
 ## 🚀 Execução Rápida
 
 ```bash
-# Rodar todos os testes
+# Rodar todos os testes (58 testes)
 npm test
+
+# Rodar apenas testes HTTP
+npm test -- http-mode.test.ts
 
 # Watch mode (desenvolvimento)
 npm run test:watch
 
 # UI interativa
 npm run test:ui
+
+# Cobertura de código
+npm run test:coverage
 ```
 
 ## 📊 Cobertura por Categoria
 
-### ✅ **100% Passando** (37/37 testes)
+### ✅ **100% Passando** (58/58 testes)
+
+- **HTTP Mode** (21/21 testes) ✅ **NOVO v2.2.0**
+  - Health endpoint validation
+  - SSE endpoint routing
+  - CORS configuration
+  - Error handling
+  - HTTP method validation
+  - Response format validation
+  - Performance benchmarks
+  - Header validation
 
 - **Localidades** (8/8 testes) ✅
   - Regiões, Estados, Municípios, Busca
@@ -47,6 +63,14 @@ npm run test:ui
 ## 🎯 Testes Críticos (Todos ✅)
 
 ```bash
+# HTTP Mode (v2.2.0)
+✓ Health endpoint returns correct structure
+✓ SSE endpoint is registered and routes correctly
+✓ CORS headers configured properly
+✓ Health check responds within 100ms
+✓ Handles concurrent requests (10+ simultaneous)
+✓ Returns proper error handling (not crashes)
+
 # Teste da correção do bug IPCA
 ✓ 🐛 FIX: IPCA acumulado 12 meses (variável 2265)
 ✓ ❌ Falha com variável incorreta 2266
@@ -64,9 +88,10 @@ npm run test:ui
 
 ## 📈 Próximos Passos
 
-1. Ajustar assertions de tipo (string vs number) nos metadados
-2. Adicionar retry para endpoints intermitentes
-3. Expandir cobertura para > 90%
+1. ✅ **CONCLUÍDO v2.2.0:** Testes HTTP mode (21 testes)
+2. Adicionar testes de integração E2E com cliente MCP real
+3. Implementar testes de carga (stress testing)
+4. Expandir cobertura para > 95%
 
 ## 🔗 Documentação Completa
 

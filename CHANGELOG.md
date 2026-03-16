@@ -5,6 +5,59 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.2.0] - 2026-03-13
+
+### ✨ Adicionado
+
+#### Suporte HTTP/SSE (Dual Transport Mode)
+- **Modo HTTP** - Servidor agora suporta HTTP/SSE além de stdio
+- `MCP_TRANSPORT` - Variável de ambiente para escolher modo (stdio|http)
+- `PORT` - Configuração customizável de porta (padrão: 3000)
+- **Endpoints HTTP**:
+  - `GET /health` - Health check com informações do servidor
+  - `POST /sse` - Conexão MCP via Server-Sent Events
+- **Scripts npm**:
+  - `npm run start:http` - Inicia servidor em modo HTTP (produção)
+  - `npm run dev:http` - Desenvolvimento em modo HTTP
+- **Documentação completa** - Novo arquivo `HTTP_MODE.md` com:
+  - Guia de uso de ambos os modos (stdio vs HTTP)
+  - Exemplos de cliente MCP via HTTP
+  - Deploy em cloud (Railway, Render, Fly.io, Docker)
+  - Recomendações de segurança e performance
+  - Casos de uso e comparações
+
+### 📦 Dependências
+
+- Adicionado `express` ^5.2.1 - Servidor HTTP
+- Adicionado `cors` ^2.8.6 - CORS middleware
+- Adicionado `@types/cors` ^2.8.19 - Tipos TypeScript
+
+### 🔧 Melhorado
+
+- **Backward compatible** - Modo stdio permanece como padrão
+- **Zero breaking changes** - Usuários existentes não são afetados
+- README atualizado com seção "Modos de Transporte"
+
+### 🧪 Testes
+
+- **21 novos testes HTTP** - Cobertura completa do modo HTTP
+- Testes de health endpoint (7 testes)
+- Testes de SSE routing (2 testes)
+- Testes de CORS (2 testes)
+- Testes de error handling (2 testes)
+- Testes de performance (2 testes)
+- Testes de validação (6 testes)
+- **Total: 58 testes passando** (anteriormente 37)
+
+### 📖 Documentação
+
+- Novo arquivo `HTTP_MODE.md` com guia completo
+- Atualização do README com informações sobre HTTP
+- Exemplos de deploy em múltiplas plataformas cloud
+- Documentação de testes atualizada (tests/README.md)
+
+---
+
 ## [2.1.0] - 2026-03-12
 
 ### ✨ Adicionado

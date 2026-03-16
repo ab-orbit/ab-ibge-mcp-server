@@ -1,6 +1,6 @@
 {
   "name": "ab-ibge-mcp-server",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "MCP Server para as APIs públicas do IBGE - Acesso a dados estatísticos, geográficos e econômicos do Brasil",
   "main": "dist/index.js",
   "bin": {
@@ -9,7 +9,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:http": "MCP_TRANSPORT=http PORT=3000 node dist/index.js",
     "dev": "ts-node src/index.ts",
+    "dev:http": "MCP_TRANSPORT=http PORT=3000 ts-node src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest watch",
     "test:ui": "vitest --ui",
@@ -51,12 +53,17 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^20.0.0",
+    "@types/supertest": "^7.2.0",
     "@vitest/ui": "^4.0.18",
+    "supertest": "^7.2.2",
     "typescript": "^5.0.0",
     "vitest": "^4.0.18"
   },

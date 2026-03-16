@@ -2,7 +2,7 @@
 
 Servidor MCP (Model Context Protocol) para as **APIs públicas do IBGE**, permitindo que agentes de IA como Claude acessem dados estatísticos, geográficos e econômicos do Brasil em tempo real.
 
-**✨ Versão 2.0.1** — Agora com cache inteligente, API de Nomes e suporte multi-variável!
+**✨ Versão 2.2.0** — Agora com suporte HTTP/SSE, cache inteligente, API de Nomes e suporte multi-variável!
 
 ---
 
@@ -84,6 +84,38 @@ npm run build
 # 4. Teste o servidor
 node dist/index.js
 ```
+
+## 🌐 Modos de Transporte
+
+O servidor suporta dois modos de transporte:
+
+| Modo | Uso | Comando |
+|------|-----|---------|
+| **stdio** (padrão) | Uso local com Claude Desktop, CLI | `npm start` |
+| **http** | Deploy cloud, múltiplos clientes | `npm run start:http` |
+
+### Modo HTTP (Novo!)
+
+Para usar o servidor via HTTP/SSE em vez de stdio:
+
+```bash
+# Desenvolvimento
+npm run dev:http
+
+# Produção
+npm run start:http
+
+# Customizar porta
+MCP_TRANSPORT=http PORT=8080 npm start
+```
+
+**Endpoints disponíveis:**
+- `GET /health` — Health check
+- `POST /sse` — Conexão MCP via Server-Sent Events
+
+**📖 Documentação completa:** [HTTP_MODE.md](./HTTP_MODE.md)
+
+---
 
 ## ⚙️ Configuração no Claude Desktop
 
