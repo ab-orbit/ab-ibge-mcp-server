@@ -60,11 +60,20 @@ class AnthropicProvider(LLMProvider):
 
     def create_message(self, messages: List[Dict], max_tokens: int = 4096, tools: Optional[List[Dict]] = None) -> Dict[str, Any]:
         """Create message using Anthropic API"""
+        # Extract system messages - Anthropic requires them as a top-level parameter
+        system_messages = [msg["content"] for msg in messages if msg.get("role") == "system"]
+        user_messages = [msg for msg in messages if msg.get("role") != "system"]
+
         params = {
             "model": self.model,
             "max_tokens": max_tokens,
-            "messages": messages,
+            "messages": user_messages,
         }
+
+        # Add system parameter if system messages exist
+        if system_messages:
+            params["system"] = "\n\n".join(system_messages)
+
         if tools:
             params["tools"] = tools
 
@@ -72,8 +81,22 @@ class AnthropicProvider(LLMProvider):
 
     def format_response(self, response: Any) -> Dict[str, Any]:
         """Format Anthropic response"""
+        # Convert Pydantic models to dictionaries
+        content = []
+        for block in response.content:
+            if hasattr(block, 'type'):
+                if block.type == 'text':
+                    content.append({"type": "text", "text": block.text})
+                elif block.type == 'tool_use':
+                    content.append({
+                        "type": "tool_use",
+                        "id": block.id,
+                        "name": block.name,
+                        "input": block.input
+                    })
+
         return {
-            "content": response.content,
+            "content": content,
             "stop_reason": response.stop_reason,
             "usage": {
                 "input_tokens": response.usage.input_tokens,
